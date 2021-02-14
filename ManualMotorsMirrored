@@ -1,108 +1,94 @@
 // Started from Adafruit "Servo" example.
-// Changed a bit.
 
 #include <Servo.h>
-#include <Wire.h> // Enable this line if using Arduino Uno, Mega, etc.
 #include <Adafruit_GFX.h>
-#include "Adafruit_LEDBackpack.h"
+#include "Adafruit_LEDBackpack.h" 
 
 Adafruit_7segment matrix = Adafruit_7segment();
 
-Servo servo;
 Servo motor_fwd;
 Servo motor_rev;
 
-int servoPin = 9;
 int motor_fwd_pin = 10;
-int motor_rev_pin = 11
+int motor_rev_pin = 11;
 int potPin   = 0;  
 int speed    = 0;  // 0 - 100 percent, either direction
 int dir      = 0;  // 1 = reverse, 0 = forward
-bool enabled = false;  // no signal out until pot goes to center (stopped)
+bool enabled = false;  // no signal out until pot goes to center (stopped) for safety
 
 // for updating the serial monitor every second during dev.
 unsigned long previousMillis = 0;
 const long updateInterval = 1000;
 
-void setup() 
+void setup()
 {
-  #ifndef __AVR_ATtiny85__
-  Serial.begin(9600);
-  Serial.println("7 Segment Backpack Test");
-  #endif
-  
-  servo.attach(servoPin);
   motor_fwd.attach(motor_fwd_pin);
   motor_rev.attach(motor_rev_pin);
-  
+ 
   matrix.begin(0x70);
   matrix.print(4611);
   matrix.writeDisplay();
-  
+ 
   Serial.begin(9600);
 
   Serial.println("Center the speed knob to begin...");
-} 
+}
  
-void loop() 
-{ 
+void loop()
+{
   unsigned long currentMillis = millis();
-  
+ 
   int reading = analogRead(potPin);           // analogRead returns 0 to 1023
-  
+ 
   do{
     reading = analogRead(potPin);
-    if( reading == 512 ){
+    if( reading > 510 && reading < 514 ){   // 512 should be zero. Small fudge factor is for imperfect pots
       enabled = true;
     }
   } while (enabled == false);
 
   int ms_fwd = map(reading, 0, 1023, 1000, 2000); // map analogRead to a range of 1000 to 2000 microseconds
   int ms_rev = map(reading, 0, 1023, 2000, 1000); // map analogRead to 2000 to 1000 to reverse it.
-  int angle = map(reading, 0, 1023, 0, 180);      // ...and to angles, for a servo, for testing.
-  //servo.write(angle);                           // rotate servo
-  motor_fwd.writeMicroseconds(ms_fwd);                // spin motor_fwd
-  motor_rev.writeMicroseconds(ms_rev);                // spin motor_fwd
 
   if( ms_fwd >= 1475 && ms_fwd <= 1525 )              // center, per Spark Max manual
   {
     speed = 0;
+    ms_fwd = 1500;
+    ms_rev = 1500; // force stopped so that display of zero means no motion
   }
   if( ms_fwd < 1475 )                             // reverse, per Spark Max manual
   {
-    speed = 0 - map( ms_fwd, 1000, 1475, 99, 0 ); // map ms to percentage
+    speed = 0 - map( ms_fwd, 1000, 1475, 100, 0 ); // map ms to percentage
     dir = 1;
   }
 
   if( ms_fwd > 1525 )                             // forward, per Spark Max manual
   {
-    speed = map(ms_fwd, 1525, 2000, 0, 99 );      // map ms to percentage
+    speed = map( ms_fwd, 1525, 2000, 0, 100 );      // map ms to percentage
     dir = 0;
   }
+
+  motor_fwd.writeMicroseconds(ms_fwd);                // spin motor_fwd
+  motor_rev.writeMicroseconds(ms_rev);                // spin motor_rev
 
   matrix.print(speed);
   matrix.writeDisplay();
  
-  if( currentMillis - previousMillis >= updateInterval)
+  if( currentMillis - previousMillis >= updateInterval )
   {
     Serial.print("\n\nDirection: ");
     if( dir ){
-      Serial.println("Forward");
-    } else {
       Serial.println("Reverse");
+    } else {
+      Serial.println("Forward");
     }
-    
+   
     Serial.print("ms_fwd : ");
     Serial.println(String(ms_fwd));
      Serial.print("ms_rev : ");
     Serial.println(String(ms_rev));
     Serial.print("Speed : ");
     Serial.println(String(speed));
-
-    Serial.print("reading: ");
-    Serial.println(String(reading));
-    Serial.print("angle  : ");
-    Serial.println(String(angle));
 
     previousMillis = currentMillis;
   }
